@@ -36,16 +36,28 @@ def load_data():
     # Check if data is mult-level columns (yfinance sometimes returns this)
     if isinstance(df.columns, pd.MultiIndex):
         # We just want the 'Close' prices
-        df = df['Close']
+        if 'Close' in df.columns.get_level_values(0):
+            df = df['Close']
+        elif 'close' in df.columns.get_level_values(0):
+            df = df['close']
+            
         if isinstance(df, pd.Series):
             df = pd.DataFrame({'Close': df})
         elif isinstance(df.columns, pd.MultiIndex):
             # If still multi-index, flatten
             df.columns = [col[0] if isinstance(col, tuple) else col for col in df.columns]
-    elif 'Close' in df.columns:
+    
+    # Force rename if it's lowercase or something else
+    col_map = {c: c for c in df.columns}
+    for c in df.columns:
+        if str(c).lower() == 'close':
+            col_map[c] = 'Close'
+    df = df.rename(columns=col_map)
+            
+    if 'Close' in df.columns:
         df = df[['Close']]
     else:
-        st.error(f"Could not find 'Close' column in data. Columns found: {df.columns}")
+        st.error(f"Could not find 'Close' column in data. Columns found: {df.columns.tolist()}")
         st.stop()
         
     # Some extra cleaning just in case
