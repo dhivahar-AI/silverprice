@@ -52,6 +52,9 @@ def load_data():
     for c in df.columns:
         if str(c).lower() == 'close':
             col_map[c] = 'Close'
+        elif str(c).upper() == 'SLV':
+            col_map[c] = 'Close'  # Fallback for when history() just returns the ticker as the column name
+            
     df = df.rename(columns=col_map)
             
     if 'Close' in df.columns:
