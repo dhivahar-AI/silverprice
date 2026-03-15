@@ -19,19 +19,44 @@ st.markdown("This dashboard extracts the last 5 years of silver ETF (SLV) prices
 def load_data():
     # Download 5 years of Silver historical data
     ticker = "SLV"
-    df = yf.download(ticker, period="5y")
+    
+    try:
+        df = yf.download(ticker, period="5y", progress=False)
+    except Exception:
+        df = pd.DataFrame()
+        
+    # Fallback if download is empty or fails (sometimes happens on cloud IPs)
+    if df.empty:
+        df = yf.Ticker(ticker).history(period="5y")
+        
+    if df.empty:
+        st.error("Failed to download data from Yahoo Finance. The API might be temporarily blocking the server IP.")
+        st.stop()
     
     # Check if data is mult-level columns (yfinance sometimes returns this)
     if isinstance(df.columns, pd.MultiIndex):
-        # We just want the 'Close' prices for SLV
+        # We just want the 'Close' prices
         df = df['Close']
-        df = pd.DataFrame(df)
-        df.columns = ['Close'] # Flatten renaming
-    else:
+        if isinstance(df, pd.Series):
+            df = pd.DataFrame({'Close': df})
+        elif isinstance(df.columns, pd.MultiIndex):
+            # If still multi-index, flatten
+            df.columns = [col[0] if isinstance(col, tuple) else col for col in df.columns]
+    elif 'Close' in df.columns:
         df = df[['Close']]
-    
+    else:
+        st.error(f"Could not find 'Close' column in data. Columns found: {df.columns}")
+        st.stop()
+        
+    # Some extra cleaning just in case
+    df = df.copy()
     df.dropna(inplace=True)
     df.reset_index(inplace=True)
+    
+    # Ensure Date column exists (yfinance history returns 'Date' as index)
+    if 'Date' not in df.columns:
+        # If the index is datetime but named something else
+        df.rename(columns={'index': 'Date'}, inplace=True)
     return df
 
 with st.spinner('Downloading 5 years of Silver Data...'):
